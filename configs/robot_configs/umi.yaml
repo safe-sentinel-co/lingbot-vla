@@ -1,0 +1,52 @@
+# Robot config for the single-camera UMI + rot6d model (data_name: umi).
+#
+# Reconstructed from the checkpoint's lingbotvla_cli.yaml, which records:
+#   cameras: [camera_top, camera_wrist_left, camera_wrist_right]
+#   joints : arm.position (padded to 14), effector.position (padded to 2)
+#
+# The UMI action/state space is 10-dim:  [xyz(3), rot6d(6), gripper(1)]
+#   - arm.position       -> the first 9 dims  (xyz + rot6d)
+#   - effector.position  -> the last  1 dim   (gripper)
+#
+# The FeatureTransform pads arm.position 9->14 and effector 1->2 automatically
+# (joints_max_dim comes from the training config), so we only slice the REAL dims.
+#
+# Images: three camera slots. This script feeds the SAME physical camera frame to
+# all three (see xarm_umi_rollout.py --replicate-camera), so we map each target
+# slot from its own key with an identity origin_key.
+
+states:
+  - observation.state.arm.position:
+      origin_keys:
+        - observation.state:
+            start: 0
+            end: 9
+
+  - observation.state.effector.position:
+      origin_keys:
+        - observation.state:
+            start: 9
+            end: 10
+
+actions:
+  - action.arm.position:
+      origin_keys:
+        - action:
+            start: 0
+            end: 9
+      subtract_state: False
+
+  - action.effector.position:
+      origin_keys:
+        - action:
+            start: 9
+            end: 10
+      subtract_state: False
+
+images:
+  - observation.images.camera_top:
+      origin_keys: observation.images.camera_top
+  - observation.images.camera_wrist_left:
+      origin_keys: observation.images.camera_wrist_left
+  - observation.images.camera_wrist_right:
+      origin_keys: observation.images.camera_wrist_right

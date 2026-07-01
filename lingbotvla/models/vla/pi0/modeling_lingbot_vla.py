@@ -1097,13 +1097,19 @@ class QwenvlWithExpertModel(PreTrainedModel):
         if self.config.vocab_size != 0 and self.config.vocab_size != 257152 and vlm_config.vocab_size != self.config.vocab_size:
             vlm_config.vocab_size = self.config.vocab_size
         
-        vlm_config._attn_implementation = 'flash_attention_2'
-        self.qwenvl = Qwen2_5_VLForConditionalGeneration._from_config(vlm_config, use_flash_attention_2=True)
+        # Prefer flash_attention_2 (as trained) but fall back to eager when the
+        # flash_attn package isn't installed, so inference works without it.
+        import importlib.util as _ilu
+        _use_fa2 = _ilu.find_spec("flash_attn") is not None
+        _attn_impl = "flash_attention_2" if _use_fa2 else "eager"
+
+        vlm_config._attn_implementation = _attn_impl
+        self.qwenvl = Qwen2_5_VLForConditionalGeneration._from_config(vlm_config, use_flash_attention_2=_use_fa2)
         if self.config.use_lm_head:
             self.qwenvl.tie_weights()
         self.config.qwen_expert_config.norm_qkv = self.config.norm_qkv
-        self.config.qwen_expert_config._attn_implementation = 'flash_attention_2'
-        self.qwen_expert = Qwen2ForCausalLM._from_config(self.config.qwen_expert_config, use_flash_attention_2=True, eval=eval)
+        self.config.qwen_expert_config._attn_implementation = _attn_impl
+        self.qwen_expert = Qwen2ForCausalLM._from_config(self.config.qwen_expert_config, use_flash_attention_2=_use_fa2, eval=eval)
 
         self.rotary_pos_emb = None
         self.window_index = None

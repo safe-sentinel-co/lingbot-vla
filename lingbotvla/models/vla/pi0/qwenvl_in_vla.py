@@ -1322,7 +1322,10 @@ class Qwen2_5_VLForConditionalGeneration(Qwen2_5_VLPreTrainedModel, GenerationMi
 
     def __init__(self, config, **kwargs):
         super().__init__(config)
-        self.visual = Qwen2_5_VisionTransformerPretrainedModel._from_config(config.vision_config, use_flash_attention_2=True)
+        # Use flash_attention_2 when available, else eager (keeps inference working without flash_attn).
+        import importlib.util as _ilu
+        _use_fa2 = _ilu.find_spec("flash_attn") is not None
+        self.visual = Qwen2_5_VisionTransformerPretrainedModel._from_config(config.vision_config, use_flash_attention_2=_use_fa2)
         self.model = Qwen2_5_VLModel(config)
         self.vocab_size = config.vocab_size
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
